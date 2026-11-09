@@ -1,0 +1,38 @@
+{
+  "name": "Publish signed ClutchPing 2.11.24",
+  "on": {
+    "push": {
+      "branches": [
+        "publish/lunar-login-2.11.24"
+      ]
+    }
+  },
+  "permissions": {
+    "contents": "write"
+  },
+  "concurrency": {
+    "group": "clutchping-public-release",
+    "cancel-in-progress": false
+  },
+  "jobs": {
+    "publish": {
+      "runs-on": "ubuntu-latest",
+      "timeout-minutes": 10,
+      "steps": [
+        {
+          "name": "Fetch immutable certificate-validated package and verify signature",
+          "shell": "bash",
+          "run": "set -euo pipefail\nmkdir -p assets\npython3 - <<'PYFETCH'\nimport ssl,urllib.request,hashlib,json,pathlib\ncert='-----BEGIN CERTIFICATE-----\\nMIIEODCCAqCgAwIBAgIUUUqRZqislh+RJCDUXsgaOpiRxaYwDQYJKoZIhvcNAQEL\\nBQAwIzEhMB8GA1UEAwwYQ2x1dGNoUGluZyB1cGRhdGUgbWlycm9yMB4XDTI2MTAx\\nNTE3NTg0NFoXDTMxMTAxNDE3NTg0NFowIzEhMB8GA1UEAwwYQ2x1dGNoUGluZyB1\\ncGRhdGUgbWlycm9yMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAmjRM\\nq3S6pFXDuNNxcp+6VXx2jqvwgpPyc0Fp9ldJGgITSJKYKiW60yQdCwrfUw+hjYA8\\n/Jl4k9p/Utk+fm5dicDcN5z/R70kLB2h6Ew1u3romg0uG7fGVnGOTExZBBQkIcvx\\nmQy5J3sDBR1LqOJXSypWCCr8AGl5x3UOQ7N5kJZpxcVNxntKT7uF6NZ81myDM/Du\\nPWyb+TMJnd/FLWSEah+MaYb6u+EI2I4Gd5hU+L7kUm3h5hRqALlI71xQJQJBOs/v\\nlzMR5aQGqbr5fqXV7RQhNGFQtqG0JXO1vNxMIykJe/+j+Pd3WhJvIJCNnGl6EUEU\\nllFFCijNqr5qecQaUCJbhAByYaPCj/aqg8XNBJ7jMJ3qRCRxBY5OEZOkxfuK486N\\nlJHtxb9R4nyxR1rPdiOKt/c9qIPMp7ZZ+D49xyiR88VImNEx61gm8ieAPaN9pLao\\ndwmYRPnjXJK++ECfc7E2kaZnS2HXH2lCGXuY9vqP7JTLxOYiEePb7aBRkY31AgMB\\nAAGjZDBiMB0GA1UdDgQWBBT83LrR+2L/Fm7Amos08Vefr+t6WzAfBgNVHSMEGDAW\\ngBT83LrR+2L/Fm7Amos08Vefr+t6WzAPBgNVHRMBAf8EBTADAQH/MA8GA1UdEQQI\\nMAaHBAUK+A8wDQYJKoZIhvcNAQELBQADggGBAFqQuUQ+xLxZf6cXFC+JGbmK8uId\\nZaGbShfd07oI1//Fnyh3lxARaqtUyGqGDupT1c7mqRIGlGdYzRi2U7c/T4Nle5Dn\\nfh8vaZJYExHvaTEUhy+JnDaZxXsLUorbLwolyo/eZjAJyucdex7lPuLL23cNcFOa\\naHGrzcXX3B7CewemIMTdGFe6wEiwa/VZbQLkEDBy6H6Z09atYxhBTphqZfX/vQF8\\n0usJ+XlCbo1jyj9qWOF+ZrCF1nj6oRCSENYfA8e1oVauCkX+jsPsXmntzHECABgu\\n90EjqhW8/NLXJBFt4NwH73sRg31gm55Catqw0vGkJLti2Imnga33BsFciiC5ka6J\\nHX+RZnTuowprK3p3ykUQJZNrYCMtY0q4tZghYIt3ZgG0a31TYHDaClJ1AqrN286b\\nnJ3ddLJdWLEdhMx4iBldGYQ/3InuWCPg/EOOrh3vmzBn2t68syojhrZVvJENgkja\\noxePxJjWlcBus+hgSmlp8G47M9qkyU0E03d+mQ==\\n-----END CERTIFICATE-----\\n'\nexpected={'ClutchPing.exe': 'a38b0c802c781477acab41cfd1ec11e1cf7cb106851d9b2f8145453ea525045e', 'ClutchPing.exe.sha256': '7be05dea267d47459bbde1ccdb25a55ed328112e1df9736165511118998c9e19', 'update-manifest.json': '6a2d95dad02e424aa5844cfb5d5f24541a6454de0eb7b0e89f069d662a4f1ac0', 'update-manifest.sig': 'aa67dc3c5cbb74fd0a2a107ecb4e3f5ab4c144de83a05b9ec701047d5e930d68'}\nctx=ssl.create_default_context(cadata=cert)\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n def redirect_request(self,*args): raise RuntimeError('Mirror redirect refused')\nopener=urllib.request.build_opener(urllib.request.ProxyHandler({}),urllib.request.HTTPSHandler(context=ctx),NoRedirect())\nfor name,digest in expected.items():\n path=pathlib.Path('assets')/name\n with opener.open('https://5.10.248.15:8444/clutchping/v2.11.24/'+name,timeout=20) as response,path.open('wb') as output:\n  total=0\n  while chunk:=response.read(1024*1024):\n   total+=len(chunk)\n   if total>256*1024*1024:raise RuntimeError('Asset size bound exceeded')\n   output.write(chunk)\n assert hashlib.sha256(path.read_bytes()).hexdigest()==digest,name+' hash mismatch'\nm=json.loads(pathlib.Path('assets/update-manifest.json').read_bytes())\nassert m['Version']=='2.11.24' and m['File']=='ClutchPing.exe'\np=pathlib.Path('assets/ClutchPing.exe');assert m['Size']==p.stat().st_size and m['Sha256']==expected['ClutchPing.exe']\npathlib.Path('update-public.pem').write_text('-----BEGIN PUBLIC KEY-----\\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEA812Q14autQUO+saLHK6o\\nwbcdLfeqYh5e8VzQ9H+Q3m09crZWQ/t80nzm/oiUHDmnuybDf82mgux5PM23Vwmz\\nFANhVQj36fkvZfCbYM6rKJ33sqvR3oeMP5lkVHXXS73dLLn+D8c285F2gj4Okt9n\\nOY1mwBUJExN+17mnH//O6JocQlAShR/FCTU9lwGDMmUSvQhMSGia7k57/P8VfTAe\\nbSpZyE29mDXg7SUeVNdXtciaK8JjVnA8X4Ylc6lt2lmwFTCZfByv0VJvetA4bnWW\\n5xgSJBqy+umZSBhCktDzdjeJBcN8yJ/ScowTGE9qcwkDTyhkWLS5c/hym1ilTpOY\\nxnEKMqBUqcRF6Z77RcmLr+BZ7MB2kTzz5NgHYzzhxYOjuS/mepRNhhi2UEPdPh9Y\\nLSkFhWNQfjMzBAzGOI1LRJ1UglMualULEoVe7LTShiuPK7RLcI6yz3B/52NYZdN6\\nn81QnIIO0+UPP4APKn3shYJ36hmGhdvGsTPHlbIJKmBtAgMBAAE=\\n-----END PUBLIC KEY-----')\npathlib.Path('release-notes.txt').write_text('ClutchPing 2.11.24 adds Minecraft > Type > Lunar Client \u2014 login only (Java direct).\\n\\nLunar launcher, installed helpers and account sign-in use the selected per-app tunnel. javaw.exe and java.exe stay direct so Minecraft server traffic avoids the proxy. The ordinary Lunar preset remains available.\\n\\nChoose the preset before connecting Minecraft. Switching into or out of login-only during connection setup or while Minecraft is active is blocked. Per app \u2014 WireSock is required; native UDP and TCP/UDP socket compatibility share the same rules.\\n\\nValidation: Windows release build, 19 Lunar routing checks, 41 SDK/lifecycle checks, 98 TCP policy checks and 8 updater transport checks passed. Signed payload verified; Defender found no threats. Live Lunar/Microsoft sign-in has not been exercised in this release test.\\n')\nprint('All four immutable staged assets match their reviewed SHA-256 digests.')\nPYFETCH\nopenssl dgst -sha256 -verify update-public.pem -signature assets/update-manifest.sig -sigopt rsa_padding_mode:pss -sigopt rsa_pss_saltlen:32 assets/update-manifest.json\n"
+        },
+        {
+          "name": "Publish and verify stable GitHub release",
+          "shell": "bash",
+          "env": {
+            "GH_TOKEN": "${{ github.token }}"
+          },
+          "run": "set -euo pipefail\nlatest=$(gh api repos/iNewpie/ClutchPing/releases/latest --jq .tag_name)\nLATEST=\"$latest\" python3 - <<'PYCHECK'\nimport os\nassert tuple(map(int,os.environ['LATEST'].removeprefix('v').split('.'))) < (2,11,24),'Refusing to replace a newer or existing stable release'\nPYCHECK\nif gh release view v2.11.24 --repo iNewpie/ClutchPing >/dev/null 2>&1; then\n echo 'This version already exists; immutable release creation stopped.' >&2\n exit 1\nfi\ngh release create v2.11.24 --repo iNewpie/ClutchPing --draft --title 'ClutchPing 2.11.24 - Lunar login only' --notes-file release-notes.txt\ngh release upload v2.11.24 --repo iNewpie/ClutchPing assets/ClutchPing.exe assets/ClutchPing.exe.sha256 assets/update-manifest.json assets/update-manifest.sig\ngh release download v2.11.24 --repo iNewpie/ClutchPing --dir verification\npython3 - <<'PYVERIFY'\nimport pathlib,hashlib\nfor source in pathlib.Path('assets').iterdir():\n assert hashlib.sha256(source.read_bytes()).digest()==hashlib.sha256((pathlib.Path('verification')/source.name).read_bytes()).digest(),source.name\nassert len(list(pathlib.Path('verification').iterdir()))==4\nprint('All four downloaded GitHub assets match the signed staged package.')\nPYVERIFY\ngh release edit v2.11.24 --repo iNewpie/ClutchPing --draft=false --prerelease=false --latest\ntest \"$(gh api repos/iNewpie/ClutchPing/releases/latest --jq .tag_name)\" = v2.11.24\n"
+        }
+      ]
+    }
+  }
+}
